@@ -1,2 +1,2 @@
 # VargaPy
-Assorted Functions that I wrote and found to be useful
+WIP. Assorted Functions that I wrote and found to be useful
