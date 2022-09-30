@@ -143,7 +143,7 @@ def backward_differencing(X, delta_x, axis=0):
 
 
 
-def centered_differencing(X_delta_x, axis=0):
+def centered_differencing(X, delta_x, axis=0):
 	#Function that calculates the partial derivative of some function F using centered finite differencing
 	#Will not work for the boundaries of X
 
