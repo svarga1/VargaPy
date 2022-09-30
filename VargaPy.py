@@ -37,7 +37,7 @@ def SatVapPressure(T, T_units='K', P_units='Pa'):
 	return e_s
 
 
-def SatMixingRatio(T, P, T_units='K', P_units='Pa', return_e_s=TRUE):
+def SatMixingRatio(T, P, T_units='K', P_units='Pa', return_e_s=True):
 	#Calculates the saturation mixing ratio at a given temperature and pressure
 
 	#T: input temperature in units T_units
