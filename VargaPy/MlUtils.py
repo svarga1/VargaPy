@@ -1,4 +1,4 @@
-#Python Package used for Various Machine Learning Utilities
+#Functions for loading Machine Learning data
 
 #########
 #Imports#
@@ -50,6 +50,70 @@ def All_Severe(base_path, mode='train', target_scale=36, FRAMEWORK='POTVIN', TIM
     y[y > 0] = 1 #All target points (y>1) are remapped to y=1
     
     return X, y, metadata
+
+
+def Drop_Unwanted_Variables(X, original=False, training_scale=False, intrastormOnly=False,  envOnly=False):
+    '''Function that removes unwanted columns from X '''
+    '''Arguments:
+       X: input dataframe created by All_Severe or load_ml_data
+       original:
+       training_scale: float/int.
+       intrastormOnly:
+       envOnly: '''
+    '''Returns X-like dataframe with fewer columns, and ts_suff which is a suffix to be appended to the ML model'''
+    
+    #Dictionary of intrastorm variables. All other variables are environmental. 
+    varDic={ 'ENS_VARS':  ['uh_2to5_instant',
+                                'uh_0to2_instant',
+                                'wz_0to2_instant',
+                                'comp_dz',
+                                'ws_80',
+                                'hailcast',
+                                'w_up',
+                                'okubo_weiss',
+                        ]}
+    
+    X=X.drop(['NX','NY'], axis=1)
+    
+    if training_scale: #Removes all columns except for those with correct neighborhood scale
+        X=X[[col for col in X.columns if '{}km'.format(training_scale) in col]] 
+        ts_suff=str(training_scale)+'km'
+    else:
+        ts_suff='all'
+    
+    if original:
+        print("Using Original Variables- Dropping IQR, 2nd lowest, 2nd highest, and intrastorm mean")
+        X=X[[col for col in X.columns if 'IQR' not in col]] #Drops IQR for all IS vars
+        X=X[[col for col in X.columns if '2nd' not in col]] #Drops 2nd lowest ens. member value for all IS vars
+        X=X[[col for col in X.columns if '16th' not in col]] #Drops 2nd highest ens. member value for all IS vars
+        badCols=np.array([])
+        for strmvar in vardic['ENS_VARS']:
+            badCols=np.append(badCols, [col for col in X.columns if 'mean' in col and strmvar in col] )
+
+        X=X.drop(badCols, axis=1)
+    else: #Drops 90th %ile computed w/ extrapolation
+        print("Using new variables- dropping old 90th percentile")
+        X=X[[col for col in X.columns if '90th' not in col]] #Keeps all columns except the old 90th %ile
+
+    if envOnly or intrastormOnly: #Drops all intrastorm variables or drops all environmental variables
+        badCols=np.array([])
+        for strmvar in vardic['ENS_VARS']: 
+            badCols=np.append(badCols, [col for col in X.columns if strmvar in col]) #Every column that has a storm var
+        if envOnly:
+            print("Dropping all intrastorm variables")
+            X=X.drop(badCols, axis=1) #Drops all intrastorm variables
+        elif intrastormOnly:
+            print("Dropping all environmental variables")
+            X=X[badCols] #drops all environmental variables
+    
+    print(X.shape)
+    print(ts_suff)
+    
+    return X, ts_suff
+
+
+
+
 
 
 def Simple_Random_Subsample(X_Full, y_Full, p, seedObject=np.random.RandomState(42)):
