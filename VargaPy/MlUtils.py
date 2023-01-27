@@ -116,7 +116,7 @@ def Drop_Unwanted_Variables(X, original=False, training_scale=False, intrastormO
 
 
 
-def Simple_Random_Subsample(X_Full, y_Full, p, seedObject=np.random.RandomState(42)):
+def Simple_Random_Subsample(X_Full, y_Full, meta_full, p, seedObject=np.random.RandomState(42)):
     '''Returns a random subsample of X_full and associated targets consisting of p% of the full training dataset'''
     
     '''X_Full: dataframe. The dataframe to draw the random sample from.'''
@@ -133,15 +133,17 @@ def Simple_Random_Subsample(X_Full, y_Full, p, seedObject=np.random.RandomState(
         return None
     elif p==1:
         print(f'Base rate of y_full: {np.mean(y_Full)}')
-        return X_Full, y_Full
+        return X_Full, y_Full, meta_full
     else:
         n_samps=int(p*X_Full.shape[0]) #number of samples to choose
         inds=seedObject.choice(X_Full.shape[0], n_samps, replace=False) #Indices of  subsample
         X_sub=X_Full.iloc[inds]
         X_sub.reset_index(drop=True, inplace=True)
         y_sub=y_Full[inds]
+        meta_sub=meta_full.iloc[inds]
+        meta_sub.reset_index(drop=True, inplace=True) #Keep an eye on this to see if it breaks
         
         print(f'Base rate of y_full: {np.mean(y_Full)}')
         print(f'Base rate of subsample for {p*100}%: {np.mean(y_sub)}')
         
-        return X_sub, y_sub
+        return X_sub, y_sub, meta_sub

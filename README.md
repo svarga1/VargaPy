@@ -1,5 +1,5 @@
 # VargaPy
-WIP. Assorted Functions that I wrote and found to be useful
+Welcome to VargaPy. This python module is designed to help with specific Very Annoying or Randomly Grievous Assignments that I run into often. 
 
 
 
