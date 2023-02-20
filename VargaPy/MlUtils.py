@@ -10,8 +10,20 @@ sys.path.append('/home/samuel.varga/projects/2to6_hr_severe_wx/') #2-6 ML repo b
 from main.io import load_ml_data 
 import pandas as pd
 import numpy as np
+import argparse
 import numpy.random as npr
 
+
+def Train_Ml_Parser():
+    '''Returns an ArgParse Object that takes in command line input to modify predictor choices'''
+    parser=argparse.ArgumentParser()
+    parser.add_argument('-o', '--original', help="Original Variables", action='store_true')
+    parser.add_argument('-ts', '--training_scale', help="Scale of Training variables (9,27,45)")
+    parser.add_argument('-hs','--hazard_scale', help="Scale of Target Variables (9,18,36, all)")
+    parser.add_argument('-hn', '--hazard_name', help="Target: hail, wind, tornado")
+    parser.add_argument('-env','--environmental', help="Drop all intrastorm variables", action='store_true')
+    parser.add_argument('-is' ,'--intrastorm', help="Drop all environmental variables", action='store_true')
+    return parser
 
 def All_Severe(base_path, mode='train', target_scale=36, FRAMEWORK='POTVIN', TIMESCALE='2to6', Big=True):
     '''base_path: Path like. Directory where ML feather files are located'''
@@ -147,3 +159,6 @@ def Simple_Random_Subsample(X_Full, y_Full, meta_full, p, seedObject=np.random.R
         print(f'Base rate of subsample for {p*100}%: {np.mean(y_sub)}')
         
         return X_sub, y_sub, meta_sub
+    
+def Non_Zero_Verification():
+    '''Only calculates verification in regions where the baseline prob !=0'''
