@@ -23,15 +23,16 @@ def Train_Ml_Parser():
     parser.add_argument('-hn', '--hazard_name', help="Target: hail, wind, tornado")
     parser.add_argument('-env','--environmental', help="Drop all intrastorm variables", action='store_true')
     parser.add_argument('-is' ,'--intrastorm', help="Drop all environmental variables", action='store_true')
+    parser.add_argument('--SigSevere', action='store_true', help='Train Using Sig Severe as Targets')
     return parser
 
-def All_Severe(base_path, mode='train', target_scale=36, FRAMEWORK='POTVIN', TIMESCALE='2to6', Big=True):
+def All_Severe(base_path, mode='train', target_scale=36, FRAMEWORK='POTVIN', TIMESCALE='2to6', SigSevere=False):
     '''base_path: Path like. Directory where ML feather files are located'''
     '''mode : str. Determines whether to load the training or testing dataset. Valid: ['train', 'test']'''
     '''target_scale: int. radius of target sizes in km. Valid: [9,18,36]'''
     '''Framework: str. Data framework to use. Determines the filepath. Valid: ['ADAM','POTVIN']'''
     '''Timescale: str. Time window for ML predictions. Determines the filepath. Valid: ['0to3','2to6']'''
-    '''Big: Bool. Flag used to grab the un-subsampled dataset'''
+    '''SigSevere: Bool. Flag used to train on sig-severe'''
     
     '''Loads the ML dataset with all severe weather types labeled as targets'''
     
@@ -40,22 +41,26 @@ def All_Severe(base_path, mode='train', target_scale=36, FRAMEWORK='POTVIN', TIM
     y: array of all-severe targets corresponding to X
     metadata: metadata about the ML file '''
     
-    target_col=f'wind_severe__{target_scale}km'
+    if SigSevere:
+        target_col=f'wind_sig_severe__{target_scale}km'
+    else:
+        target_col=f'wind_severe__{target_scale}km'
     X, y, metadata = load_ml_data(base_path=base_path,
                                   mode=mode,
                                   target_col=target_col,
                                   FRAMEWORK=FRAMEWORK,
-                                  TIMESCALE=TIMESCALE,
-                                  Big=Big)
+                                  TIMESCALE=TIMESCALE)
     print(len(y[y>0])) #Number of points with wind targets
     for hazard in ['hail','tornado']:
-        target_col='{}_severe__{}km'.format(hazard, target_scale)
-        SPAM, y1, SPAM  = load_ml_data(base_path=base_path,
+        if SigSevere:
+            target_col='{}_sig_severe__{}km'.format(hazard, target_scale)
+        else:
+            target_col='{}_severe__{}km'.format(hazard, target_scale)
+        _, y1, _  = load_ml_data(base_path=base_path,
                                        mode=mode,
                                        target_col=target_col,
                                        FRAMEWORK=FRAMEWORK,
-                                       TIMESCALE=TIMESCALE,
-                                       Big=Big) 
+                                       TIMESCALE=TIMESCALE) 
         y +=y1
         print(len(y[y>0])) #Prints the number of wind+hail targets, then wind+hail+tornado
        
@@ -160,5 +165,20 @@ def Simple_Random_Subsample(X_Full, y_Full, meta_full, p, seedObject=np.random.R
         
         return X_sub, y_sub, meta_sub
     
-def Non_Zero_Verification():
-    '''Only calculates verification in regions where the baseline prob !=0'''
+def group_coefs(Cols, coefs, groupby=None):
+    '''Takes in a list of column names, and the matching coefficients for LR, and returns a DF that can be grouped'''
+    '''Cols- list of variable names
+    coefs - coefficients from LR corresponding to the columns
+    '''
+    X=pd.DataFrame(columns=['name','variable','category','neighborhood','statistic', 'coef']) #Make an empty dataframe
+    X['name']=Cols #'name' contains the unparsed variable names from the ml df
+    X['coef']=np.abs(coefs) #Absolute value of coefs
+    X['variable']=[var.split('__')[0] for var in Cols]
+    X['category']=[var.split('__')[1] if 'Init Time' not in var else 'N/A' for var in Cols]
+    X['neighborhood']=[var.split('__')[2] if 'Init Time' not in var else 'N/A'for var in Cols]
+    X['statistic']=[var.split('__')[3]if 'Init Time' not in var else 'N/A' for var in Cols]
+    X=X.drop('name', axis=1)
+    if groupby is None:
+        return X
+    else:
+        return X.groupby(by=groupby)
