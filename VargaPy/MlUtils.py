@@ -20,7 +20,7 @@ def Train_Ml_Parser():
     parser.add_argument('-o', '--original', help="Original Variables", action='store_true')
     parser.add_argument('-ts', '--training_scale', help="Scale of Training variables (9,27,45)")
     parser.add_argument('-hs','--hazard_scale', help="Scale of Target Variables (9,18,36, all)")
-    parser.add_argument('-hn', '--hazard_name', help="Target: hail, wind, tornado")
+    parser.add_argument('-hn', '--hazard_name', nargs='+', help="Target: hail, wind, tornado")
     parser.add_argument('-env','--environmental', help="Drop all intrastorm variables", action='store_true')
     parser.add_argument('-is' ,'--intrastorm', help="Drop all environmental variables", action='store_true')
     parser.add_argument('--SigSevere', action='store_true', help='Train Using Sig Severe as Targets')
@@ -69,15 +69,16 @@ def All_Severe(base_path, mode='train', target_scale=36, FRAMEWORK='POTVIN', TIM
     return X, y, metadata
 
 
-def Drop_Unwanted_Variables(X, original=False, training_scale=False, intrastormOnly=False,  envOnly=False):
+def Drop_Unwanted_Variables(X, original=False, training_scale=False, intrastormOnly=False,  envOnly=False, dropList=None):
     '''Function that removes unwanted columns from X '''
     '''Arguments:
        X: input dataframe created by All_Severe or load_ml_data
        original:
-       training_scale: float/int.
+       training_scale: float/int. Only predictors of this scale are kept
        intrastormOnly:
        envOnly: '''
-    '''Returns X-like dataframe with fewer columns, and ts_suff which is a suffix to be appended to the ML model'''
+    '''dropList: list. drops any variable that matches a list entry'''
+    '''Returns X-like dataframe with fewer columns, and ts_suff/var_suff which are a suffix to be appended to the ML model'''
     
     #Dictionary of intrastorm variables. All other variables are environmental. 
     varDic={ 'ENS_VARS':  ['uh_2to5_instant',
@@ -114,7 +115,7 @@ def Drop_Unwanted_Variables(X, original=False, training_scale=False, intrastormO
 
     if envOnly or intrastormOnly: #Drops all intrastorm variables or drops all environmental variables
         badCols=np.array([])
-        for strmvar in vardic['ENS_VARS']: 
+        for strmvar in varDic['ENS_VARS']: 
             badCols=np.append(badCols, [col for col in X.columns if strmvar in col]) #Every column that has a storm var
         if envOnly:
             print("Dropping all intrastorm variables")
@@ -122,11 +123,19 @@ def Drop_Unwanted_Variables(X, original=False, training_scale=False, intrastormO
         elif intrastormOnly:
             print("Dropping all environmental variables")
             X=X[badCols] #drops all environmental variables
-    
+    if dropList:
+        print(f'Dropping {dropList}')
+        X=X.drop([colName for colName in X.columns for dropvar in dropList if dropvar in colName], axis=1)
+        
     print(X.shape)
     print(ts_suff)
     
-    return X, ts_suff
+    if intrastormOnly or envOnly:
+        var_suff = 'intrastorm' if intrastormOnly else 'environment'
+    else:
+        var_suff='control'
+    
+    return X, ts_suff, var_suff
 
 
 
@@ -174,8 +183,8 @@ def group_coefs(Cols, coefs, groupby=None):
     X['name']=Cols #'name' contains the unparsed variable names from the ml df
     X['coef']=np.abs(coefs) #Absolute value of coefs
     X['variable']=[var.split('__')[0] for var in Cols]
-    X['category']=[var.split('__')[1] if 'Init Time' not in var else 'N/A' for var in Cols]
-    X['neighborhood']=[var.split('__')[2] if 'Init Time' not in var else 'N/A'for var in Cols]
+    X['category']=[var.split('__')[1] if 'Init Time' not in var else 'time_avg' for var in Cols]
+    X['neighborhood']=[var.split('__')[2] if 'Init Time' not in var else '4km'for var in Cols]
     X['statistic']=[var.split('__')[3]if 'Init Time' not in var else 'N/A' for var in Cols]
     X=X.drop('name', axis=1)
     if groupby is None:
