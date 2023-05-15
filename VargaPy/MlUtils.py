@@ -26,7 +26,7 @@ def Train_Ml_Parser():
     parser.add_argument('--SigSevere', action='store_true', help='Train Using Sig Severe as Targets')
     return parser
 
-def All_Severe(base_path, mode='train', target_scale=36, FRAMEWORK='POTVIN', TIMESCALE='2to6', SigSevere=False):
+def All_Severe(base_path, mode='train', target_scale=36, FRAMEWORK='POTVIN', TIMESCALE='2to6', SigSevere=False, appendUH=False, Three_km=False):
     '''base_path: Path like. Directory where ML feather files are located'''
     '''mode : str. Determines whether to load the training or testing dataset. Valid: ['train', 'test']'''
     '''target_scale: int. radius of target sizes in km. Valid: [9,18,36]'''
@@ -49,7 +49,7 @@ def All_Severe(base_path, mode='train', target_scale=36, FRAMEWORK='POTVIN', TIM
                                   mode=mode,
                                   target_col=target_col,
                                   FRAMEWORK=FRAMEWORK,
-                                  TIMESCALE=TIMESCALE)
+                                  TIMESCALE=TIMESCALE, appendUH=appendUH, Three_km=Three_km)
     print(len(y[y>0])) #Number of points with wind targets
     for hazard in ['hail','tornado']:
         if SigSevere:
@@ -60,7 +60,7 @@ def All_Severe(base_path, mode='train', target_scale=36, FRAMEWORK='POTVIN', TIM
                                        mode=mode,
                                        target_col=target_col,
                                        FRAMEWORK=FRAMEWORK,
-                                       TIMESCALE=TIMESCALE) 
+                                       TIMESCALE=TIMESCALE, Three_km=Three_km) 
         y +=y1
         print(len(y[y>0])) #Prints the number of wind+hail targets, then wind+hail+tornado
        
@@ -191,3 +191,14 @@ def group_coefs(Cols, coefs, groupby=None):
         return X
     else:
         return X.groupby(by=groupby)
+    
+    
+def pseudo_all_severe_probs(models, X_test):
+    '''Takes in a list of models trained on individual hazards, then predicts on X_test to produce probability of any severe hazard'''
+    '''models - list of models, where each model is trained for an individual severe weather hazard'''
+    '''X_test - data to generate predictions for'''   
+    indiv_probs=[model[1].predict_proba(X_test)[:,1] for model in models] #List of probabilities that a given hazard occurs
+    no_severe_probs=np.ones_like(indiv_probs)-indiv_probs #List of probabilities that a given hazard doesn't occur
+    no_severe_probs=np.multiply.reduce(no_severe_probs, axis=0) #Multiplies all probabilites together at a given grid point - probability that none of the severe hazards occur at that point
+    all_severe_probs=np.ones_like(no_severe_probs)-no_severe_probs #Complementary - (1-prob of no hazards)=prob of any (or all) hazards
+    return all_severe_probs
