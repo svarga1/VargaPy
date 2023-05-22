@@ -40,16 +40,16 @@ def All_Severe(base_path, mode='train', target_scale=36, FRAMEWORK='POTVIN', TIM
     X: dataset of predictors
     y: array of all-severe targets corresponding to X
     metadata: metadata about the ML file '''
-    
+    #Data used for bulk training and evaluation - returns X, y, metadata
     if SigSevere:
         target_col=f'wind_sig_severe__{target_scale}km'
     else:
         target_col=f'wind_severe__{target_scale}km'
     X, y, metadata = load_ml_data(base_path=base_path,
-                                  mode=mode,
-                                  target_col=target_col,
-                                  FRAMEWORK=FRAMEWORK,
-                                  TIMESCALE=TIMESCALE, appendUH=appendUH, Three_km=Three_km)
+                                      mode=mode,
+                                      target_col=target_col,
+                                      FRAMEWORK=FRAMEWORK,
+                                      TIMESCALE=TIMESCALE, appendUH=appendUH, Three_km=Three_km)
     print(len(y[y>0])) #Number of points with wind targets
     for hazard in ['hail','tornado']:
         if SigSevere:
@@ -57,16 +57,18 @@ def All_Severe(base_path, mode='train', target_scale=36, FRAMEWORK='POTVIN', TIM
         else:
             target_col='{}_severe__{}km'.format(hazard, target_scale)
         _, y1, _  = load_ml_data(base_path=base_path,
-                                       mode=mode,
-                                       target_col=target_col,
-                                       FRAMEWORK=FRAMEWORK,
-                                       TIMESCALE=TIMESCALE, Three_km=Three_km) 
+                                           mode=mode,
+                                           target_col=target_col,
+                                           FRAMEWORK=FRAMEWORK,
+                                           TIMESCALE=TIMESCALE, Three_km=Three_km) 
         y +=y1
         print(len(y[y>0])) #Prints the number of wind+hail targets, then wind+hail+tornado
-       
+
     y[y > 0] = 1 #All target points (y>1) are remapped to y=1
     
     return X, y, metadata
+    
+
 
 
 def Drop_Unwanted_Variables(X, original=False, training_scale=False, intrastormOnly=False,  envOnly=False, dropList=None):
@@ -90,8 +92,7 @@ def Drop_Unwanted_Variables(X, original=False, training_scale=False, intrastormO
                                 'w_up',
                                 'okubo_weiss',
                         ]}
-    
-    X=X.drop(['NX','NY'], axis=1)
+    X=X[[col for col in X.columns if col not in ['NX','NY']]]
     
     if training_scale: #Removes all columns except for those with correct neighborhood scale
         X=X[[col for col in X.columns if '{}km'.format(training_scale) in col]] 
@@ -202,3 +203,42 @@ def pseudo_all_severe_probs(models, X_test):
     no_severe_probs=np.multiply.reduce(no_severe_probs, axis=0) #Multiplies all probabilites together at a given grid point - probability that none of the severe hazards occur at that point
     all_severe_probs=np.ones_like(no_severe_probs)-no_severe_probs #Complementary - (1-prob of no hazards)=prob of any (or all) hazards
     return all_severe_probs
+
+def get_bl_col(target_scale, hazard_name, timescale):
+    '''Returns the correct baseline column title for the given timescale, hazard, and target_scale'''
+    '''Params:
+    target_scale - radius of target neighborhood in km - 36/18/9
+    hazard_name - name & severity of hazard
+    timescale= timescale of forecast window: either 0to3 or 2to6'''
+    
+    bl_cols = {'0to3':{'36':{'hail_severe' :  'hailcast__nmep_>1_25_45km',
+          'wind_severe' : 'ws_80__nmep_>40_27km',
+          'tornado_severe' : 'uh_2to5_instant__nmep_>175_27km',
+            'all_severe' : 'uh_2to5_instant__nmep_>100_27km'
+         },
+                      '18':{'hail_severe' :  'hailcast__nmep_>1_25_27km',
+          'wind_severe' : 'ws_80__nmep_>40_27km',
+          'tornado_severe' : 'uh_2to5_instant__nmep_>200_27km',
+            'all_severe' : 'uh_2to5_instant__nmep_>150_27km'
+         },
+                      '9':{'hail_severe' :  'hailcast__nmep_>1_25_27km',
+          'wind_severe' : 'ws_80__nmep_>40_27km',
+          'tornado_severe' : 'uh_2to5_instant__nmep_>75_9km',
+            'all_severe' : 'uh_2to5_instant__nmep_>75_9km'
+         }},
+    '2to6':{'36':{'hail_severe' :  'hailcast__nmep_>1_25_45km',
+          'wind_severe' : 'ws_80__nmep_>50_45km',
+          'tornado_severe' : 'uh_2to5_instant__nmep_>200_27km',
+            'all_severe' : 'uh_2to5_instant__nmep_>150_45km'
+         },
+           '18':{'hail_severe' :  'hailcast__nmep_>1_25_27km',
+          'wind_severe' : 'ws_80__nmep_>50_27km',
+          'tornado_severe' : 'uh_2to5_instant__nmep_>200_27km',
+            'all_severe' : 'uh_2to5_instant__nmep_>150_27km'
+         },
+           '9':{'hail_severe' :  'hailcast__nmep_>1_25_27km',
+          'wind_severe' : 'ws_80__nmep_>50_27km',
+          'tornado_severe' : 'uh_2to5_instant__nmep_>200_9km',
+            'all_severe' : 'uh_2to5_instant__nmep_>175_27km'
+         }}} 
+    return bl_cols[timescale][target_scale][hazard_name]
