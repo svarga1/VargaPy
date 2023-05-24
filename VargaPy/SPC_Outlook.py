@@ -6,6 +6,7 @@ import urllib.request
 from zipfile import ZipFile
 import shapefile
 from descartes import PolygonPatch
+import geopandas as gpd
 
 class SPCoutlook: 
     '''Class for acessing SPC Convective Outlooks'''
@@ -27,8 +28,8 @@ class SPCoutlook:
         self.base_path = join(base_path, date)
         self.outlook_time = outlook_time
         self.url = url
-        #self.filename = filename if filename else f'day1otlk_{date}_1630-shp.zip' 
-        self.filename = filename if filename else f'day1otlk_{date}_1630.kmz'
+        self.filename = filename if filename else f'day1otlk_{date}_1630-shp.zip' 
+        #self.filename = filename if filename else f'day1otlk_{date}_1630.kmz'
         self.local_filename=local_filename if local_filename else '_'.join(self.filename.split('_')[0:-1])+f'_1630_{self.category}'
         self.extract = extract
         
@@ -45,7 +46,8 @@ class SPCoutlook:
 
         #Download file
         print(f'Downloading outlook from {join(self.url, f"{self.date[0:4]}/{self.filename}")}')
-        urllib.request.urlretrieve(join(self.url, f'{self.date[0:4]}/{self.filename}'), join(self.base_path, self.filename))
+        #urllib.request.urlretrieve(join(self.url, f'{self.date[0:4]}/{self.filename}'), join(self.base_path, self.filename))
+        urllib.request.urlretrieve(self.url + f'/{self.date[0:4]}/{self.filename}', join(self.base_path, self.filename)) #windows is silly
 
         #Extract files    
         if self.extract: 
@@ -65,15 +67,45 @@ class SPCoutlook:
 
         #Load outlook shapefile
         print(f'Loading {self.local_filename}')
-        self.outlook = shapefile.Reader(join(self.base_path, self.local_filename))
-
+        #self.outlook = shapefile.Reader(join(self.base_path, self.local_filename))
+        #self.outlook = gpd.read_file(join(self.base_path, self.local_filename))
+        self.outlook = gpd.read_file(self.base_path +'/'+ self.local_filename+'.shp')
+        print(self.outlook)
+        print(guidance for guidance in self.outlook.geometry)
+        print(self.outlook.crs)
         return 
     
-    def add_to_ax(self, ax):
+    def add_to_ax(self, ax, crs):
         '''Adds the outlook boundaries to an existing figure axis'''
         '''Params:
         ax: figure axis to plot outlook boundaries on
+        crs: projection that data is being plotted in 
         '''
-        for guidance in self.outlook.shapes():
-            poly=guidance.__geo_interface__
-            ax.add_patch(PolygonPatch(poly, fc='red', ec='red', alpha=0.5, zorder=2))
+        self.outlook.geometry = self.outlook.geometry.to_crs(crs)
+        print(self.outlook)
+        
+        #self.outlook.plot(ax=ax, zorder=-1)
+        ax.add_geometries(self.outlook.geometry, crs=crs)
+        #for guidance in self.outlook.geometry:
+            #ax.add_patch(PolygonPatch(guidance, fc='red', ec='red', alpha=0.5, zorder=2))
+            #print(guidance)
+
+
+        #for guidance in self.outlook.shapes():
+        #for guidance in self.outlook.geometry:
+            #poly=guidance.__geo_interface__
+            #ax.add_patch(PolygonPatch( guidance, fc='red', ec'red', alpha=0.5, zorder=2))
+            #ax.add_patch(PolygonPatch(guidance, fc='red', ec='red', alpha=0.5, zorder=2))
+
+
+
+
+
+'''    import cartopy.io.shapereader as shpreader
+# Read shape file
+reader = shpreader.Reader("ne_110m_admin_0_countries.shp")
+# Filter for a specific country
+kenya = [country for country in reader.records() if country.attributes["NAME_LONG"] == "Kenya"][0]
+# Display Kenya's shape
+shape_feature = ShapelyFeature([kenya.geometry], ccrs.PlateCarree(), facecolor="lime", edgecolor='black', lw=1)
+ax.add_feature(shape_feature)'''
