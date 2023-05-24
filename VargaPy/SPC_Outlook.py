@@ -32,6 +32,10 @@ class SPCoutlook:
         #self.filename = filename if filename else f'day1otlk_{date}_1630.kmz'
         self.local_filename=local_filename if local_filename else '_'.join(self.filename.split('_')[0:-1])+f'_1630_{self.category}'
         self.extract = extract
+        self.colors = {'cat':{2:'#c1e9c1' , 3:'#80c580' , 4:'#f7f780' , 5:'#e6c280' , 6:'#e68080' , 8:'#ff80ff'},
+                        'wind':{5:'#8b4726', 15:'#ffc800', 30:'#ff0000', 45:'#ff00ff', 60:'#912cee'},
+                        'hail':{5:'#8b4726', 15:'#ffc800', 30:'#ff0000', 45:'#ff00ff', 60:'#912cee'},
+                        'torn':{2:'#008b00', 5:'#8b4726', 10:'#ffc800', 15:'#ff0000', 30:'#ff00ff' , 45: '#c896f7', 60: '#104e8b'}}
         
         self.load_spc_outlook()
         
@@ -85,7 +89,12 @@ class SPCoutlook:
         print(self.outlook)
         
         #self.outlook.plot(ax=ax, zorder=-1)
-        ax.add_geometries(self.outlook.geometry, crs=crs)
+        #ax.add_geometries(self.outlook.geometry, crs=crs)
+
+        for poly, dn in zip(self.outlook.geometry, self.outlook.DN):
+            #ax.add_geometries(poly, crs=crs, facecolor=self.colors[self.category][dn], edgecolor=self.colors[self.category][dn])
+            ax.add_geometries(poly, crs=crs, facecolor=None, edgecolor=self.colors[self.category][dn])
+
         #for guidance in self.outlook.geometry:
             #ax.add_patch(PolygonPatch(guidance, fc='red', ec='red', alpha=0.5, zorder=2))
             #print(guidance)
