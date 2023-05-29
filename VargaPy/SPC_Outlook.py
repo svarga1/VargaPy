@@ -1,12 +1,13 @@
-import requests
-import json
+#import requests
+#import json
 import os
 from os.path import exists, join
 import urllib.request
 from zipfile import ZipFile
-import shapefile
-from descartes import PolygonPatch
+#import shapefile
+#from descartes import PolygonPatch
 import geopandas as gpd
+import matplotlib.patches as mpatches
 
 class SPCoutlook: 
     '''Class for acessing SPC Convective Outlooks'''
@@ -30,13 +31,18 @@ class SPCoutlook:
         self.url = url
         self.filename = filename if filename else f'day1otlk_{date}_1630-shp.zip' 
         #self.filename = filename if filename else f'day1otlk_{date}_1630.kmz'
-        self.local_filename=local_filename if local_filename else '_'.join(self.filename.split('_')[0:-1])+f'_1630_{self.category}'
+        self.local_filename=local_filename if local_filename else '_'.join(self.filename.split('_')[0:-1])+f'_1630_{self.category}.shp'
         self.extract = extract
-        self.colors = {'cat':{2:'#c1e9c1' , 3:'#80c580' , 4:'#f7f780' , 5:'#e6c280' , 6:'#e68080' , 8:'#ff80ff'},
-                        'wind':{5:'#8b4726', 15:'#ffc800', 30:'#ff0000', 45:'#ff00ff', 60:'#912cee'},
-                        'hail':{5:'#8b4726', 15:'#ffc800', 30:'#ff0000', 45:'#ff00ff', 60:'#912cee'},
-                        'torn':{2:'#008b00', 5:'#8b4726', 10:'#ffc800', 15:'#ff0000', 30:'#ff00ff' , 45: '#c896f7', 60: '#104e8b'}}
+        self.colors = {'cat':{2:('TSTM','#c1e9c1') , 3:('MRGL','#80c580') , 4:('SLGT','#f7f780') , 5:('ENH','#e6c280') , 6:('MDT','#e68080') , 8:('HIGH','#ff80ff')},
+                        'wind':{5:('5','#8b4726'), 15:('15','#ffc800'), 30:('30','#ff0000'), 45:('45','#ff00ff'), 60:('60','#912cee')},
+                        'hail':{5:('5','#8b4726'), 15:('15','#ffc800'), 30:('30','#ff0000'), 45:('45','#ff00ff'), 60:('60','#912cee')},
+                        'torn':{2:('2','#008b00'), 5:('5','#8b4726'), 10:('10','#ffc800'), 15:('15','#ff0000'), 30:('30','#ff00ff'), 45: ('45','#c896f7'), 60:('60', '#104e8b')}}
+        self.legend_titles = {'cat':'Categorical Outlook Legend',
+                              'hail':'Hail Probability Legend (in %)',
+                              'wind':'Wind Probability Legend (in %)',
+                              'torn':'Tornado Probability Legend (in %)'}
         
+        #Download & Load SPC outlook files when class instance is created
         self.load_spc_outlook()
         
     def download_spc_outlook(self):
@@ -50,8 +56,8 @@ class SPCoutlook:
 
         #Download file
         print(f'Downloading outlook from {join(self.url, f"{self.date[0:4]}/{self.filename}")}')
-        #urllib.request.urlretrieve(join(self.url, f'{self.date[0:4]}/{self.filename}'), join(self.base_path, self.filename))
-        urllib.request.urlretrieve(self.url + f'/{self.date[0:4]}/{self.filename}', join(self.base_path, self.filename)) #windows is silly
+        urllib.request.urlretrieve(join(self.url, f'{self.date[0:4]}/{self.filename}'), join(self.base_path, self.filename))
+        #urllib.request.urlretrieve(self.url + f'/{self.date[0:4]}/{self.filename}', join(self.base_path, self.filename)) #windows is silly
 
         #Extract files    
         if self.extract: 
@@ -72,8 +78,10 @@ class SPCoutlook:
         #Load outlook shapefile
         print(f'Loading {self.local_filename}')
         #self.outlook = shapefile.Reader(join(self.base_path, self.local_filename))
-        #self.outlook = gpd.read_file(join(self.base_path, self.local_filename))
-        self.outlook = gpd.read_file(self.base_path +'/'+ self.local_filename+'.shp')
+        
+        #Saves and sorts the values in order based on label
+        self.outlook = gpd.read_file(join(self.base_path, self.local_filename)).sort_values(by='DN')  
+        #self.outlook = gpd.read_file(self.base_path +'/'+ self.local_filename+'.shp')
         print(self.outlook)
         print(guidance for guidance in self.outlook.geometry)
         print(self.outlook.crs)
@@ -86,14 +94,15 @@ class SPCoutlook:
         crs: projection that data is being plotted in 
         '''
         self.outlook.geometry = self.outlook.geometry.to_crs(crs)
-        print(self.outlook)
+        #print(self.outlook)
         
         #self.outlook.plot(ax=ax, zorder=-1)
         #ax.add_geometries(self.outlook.geometry, crs=crs)
 
         for poly, dn in zip(self.outlook.geometry, self.outlook.DN):
+            #Polygons are ordered from high to low, but we plot from low to high so the higher risk boundaries appear on top.
             #ax.add_geometries(poly, crs=crs, facecolor=self.colors[self.category][dn], edgecolor=self.colors[self.category][dn])
-            ax.add_geometries(poly, crs=crs, facecolor=None, edgecolor=self.colors[self.category][dn])
+            ax.add_geometries(poly, crs=crs, facecolor='None', edgecolor=self.colors[self.category][dn][1])
 
         #for guidance in self.outlook.geometry:
             #ax.add_patch(PolygonPatch(guidance, fc='red', ec='red', alpha=0.5, zorder=2))
@@ -105,8 +114,17 @@ class SPCoutlook:
             #poly=guidance.__geo_interface__
             #ax.add_patch(PolygonPatch( guidance, fc='red', ec'red', alpha=0.5, zorder=2))
             #ax.add_patch(PolygonPatch(guidance, fc='red', ec='red', alpha=0.5, zorder=2))
-
-
+    
+    def add_legend_to_ax(self, ax):
+        '''adds the outlook legend to an existing figure axis. returns legend object'''
+        
+        order=[0,3,1,4,2,5] #Used to reorient the legend
+        outlook_patches=[mpatches.Patch(facecolor=color[1], label=color[0]) for color in self.colors[self.category].values()]
+        outlook_patches=[outlook_patches[i] for i in order[:len(outlook_patches)]]
+        legend = ax.legend(handles=outlook_patches, ncol=3, title=self.legend_titles[self.category], markerfirst=False)
+        ax.axis('off')
+        
+        return legend
 
 
 
