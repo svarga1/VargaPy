@@ -8,6 +8,7 @@ from zipfile import ZipFile
 #from descartes import PolygonPatch
 import geopandas as gpd
 import matplotlib.patches as mpatches
+from bs4 import BeautifulSoup
 
 class SPCoutlook: 
     '''Class for acessing SPC Convective Outlooks'''
@@ -34,13 +35,13 @@ class SPCoutlook:
         self.local_filename=local_filename if local_filename else '_'.join(self.filename.split('_')[0:-1])+f'_1630_{self.category}.shp'
         self.extract = extract
         self.colors = {'cat':{2:('TSTM','#c1e9c1') , 3:('MRGL','#80c580') , 4:('SLGT','#f7f780') , 5:('ENH','#e6c280') , 6:('MDT','#e68080') , 8:('HIGH','#ff80ff')},
-                        'wind':{5:('5','#8b4726'), 15:('15','#ffc800'), 30:('30','#ff0000'), 45:('45','#ff00ff'), 60:('60','#912cee')},
-                        'hail':{5:('5','#8b4726'), 15:('15','#ffc800'), 30:('30','#ff0000'), 45:('45','#ff00ff'), 60:('60','#912cee')},
+                        'wind':{5:('5','#8b4726'), 15:('15','#ffc800'), 30:('30','#ff0000'), 45:('45','#ff00ff'), 60:('60','#912cee'), 10:('10% Sig','k')},
+                        'hail':{5:('5','#8b4726'), 15:('15','#ffc800'), 30:('30','#ff0000'), 45:('45','#ff00ff'), 60:('60','#912cee'), 10:('10% Sig','k')},
                         'torn':{2:('2','#008b00'), 5:('5','#8b4726'), 10:('10','#ffc800'), 15:('15','#ff0000'), 30:('30','#ff00ff'), 45: ('45','#c896f7'), 60:('60', '#104e8b')}}
         self.legend_titles = {'cat':'Categorical Outlook Legend',
-                              'hail':'Hail Probability Legend (in %)',
-                              'wind':'Wind Probability Legend (in %)',
-                              'torn':'Tornado Probability Legend (in %)'}
+                              'hail':'SPC Hail Probability Legend (in %)',
+                              'wind':'SPC Wind Probability Legend (in %)',
+                              'torn':'SPC Tornado Probability Legend (in %)'}
         
         #Download & Load SPC outlook files when class instance is created
         self.load_spc_outlook()
@@ -57,7 +58,7 @@ class SPCoutlook:
         #Download file
         print(f'Downloading outlook from {join(self.url, f"{self.date[0:4]}/{self.filename}")}')
         urllib.request.urlretrieve(join(self.url, f'{self.date[0:4]}/{self.filename}'), join(self.base_path, self.filename))
-        #urllib.request.urlretrieve(self.url + f'/{self.date[0:4]}/{self.filename}', join(self.base_path, self.filename)) #windows is silly
+        
 
         #Extract files    
         if self.extract: 
@@ -77,15 +78,48 @@ class SPCoutlook:
 
         #Load outlook shapefile
         print(f'Loading {self.local_filename}')
-        #self.outlook = shapefile.Reader(join(self.base_path, self.local_filename))
         
         #Saves and sorts the values in order based on label
         self.outlook = gpd.read_file(join(self.base_path, self.local_filename)).sort_values(by='DN')  
-        #self.outlook = gpd.read_file(self.base_path +'/'+ self.local_filename+'.shp')
         print(self.outlook)
         print(guidance for guidance in self.outlook.geometry)
         print(self.outlook.crs)
         return 
+    
+    
+    #######
+    """
+    def download_watches_and_discussions(self, url=f'https://www.spc.noaa.gov/products/md/{self.date[0:4]/}'):
+        '''Downloads the watches and mesoscale discussions from the SPC catalogue'''
+        
+        page=requests.get().text
+        soup=BeautifulSoup(page, 'html.parser')
+        files=[element.get_text() for element in soup.find_all('a') if '.kmz' in element.get_text()] #List of available files
+        
+        #File checks
+        missing_files=
+        
+        if len(missing_files)!=0:
+            print(f'Missing {} Mesoscale Discussions for {self.date[0:4]}')
+            print('Downloading')
+            
+            for file in missing_files:
+                file_url=join(url, file) #File to download
+                file_out=join(self.meso_dir, file) #Temporary Output Name
+        
+        if len(missing_files)!=0:
+            print(f'Missing {} Watches for {self.date[0:4]}')
+            
+            
+        https://www.spc.noaa.gov/products/watch/2019/
+        https://www.spc.noaa.gov/products/md/2019/
+        
+        urllib.request.urlretrieve(url, gzfile)
+                
+    #def load_contours():
+    """
+    
+    ######
     
     def add_to_ax(self, ax, crs):
         '''Adds the outlook boundaries to an existing figure axis'''
@@ -94,26 +128,13 @@ class SPCoutlook:
         crs: projection that data is being plotted in 
         '''
         self.outlook.geometry = self.outlook.geometry.to_crs(crs)
-        #print(self.outlook)
-        
-        #self.outlook.plot(ax=ax, zorder=-1)
-        #ax.add_geometries(self.outlook.geometry, crs=crs)
 
         for poly, dn in zip(self.outlook.geometry, self.outlook.DN):
+            
             #Polygons are ordered from high to low, but we plot from low to high so the higher risk boundaries appear on top.
-            #ax.add_geometries(poly, crs=crs, facecolor=self.colors[self.category][dn], edgecolor=self.colors[self.category][dn])
             ax.add_geometries(poly, crs=crs, facecolor='None', edgecolor=self.colors[self.category][dn][1])
 
-        #for guidance in self.outlook.geometry:
-            #ax.add_patch(PolygonPatch(guidance, fc='red', ec='red', alpha=0.5, zorder=2))
-            #print(guidance)
-
-
-        #for guidance in self.outlook.shapes():
-        #for guidance in self.outlook.geometry:
-            #poly=guidance.__geo_interface__
-            #ax.add_patch(PolygonPatch( guidance, fc='red', ec'red', alpha=0.5, zorder=2))
-            #ax.add_patch(PolygonPatch(guidance, fc='red', ec='red', alpha=0.5, zorder=2))
+ 
     
     def add_legend_to_ax(self, ax):
         '''adds the outlook legend to an existing figure axis. returns legend object'''
@@ -125,14 +146,3 @@ class SPCoutlook:
         ax.axis('off')
         
         return legend
-
-
-
-'''    import cartopy.io.shapereader as shpreader
-# Read shape file
-reader = shpreader.Reader("ne_110m_admin_0_countries.shp")
-# Filter for a specific country
-kenya = [country for country in reader.records() if country.attributes["NAME_LONG"] == "Kenya"][0]
-# Display Kenya's shape
-shape_feature = ShapelyFeature([kenya.geometry], ccrs.PlateCarree(), facecolor="lime", edgecolor='black', lw=1)
-ax.add_feature(shape_feature)'''

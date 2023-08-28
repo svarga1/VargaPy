@@ -26,7 +26,7 @@ def Train_Ml_Parser():
     parser.add_argument('--SigSevere', action='store_true', help='Train Using Sig Severe as Targets')
     return parser
 
-def All_Severe(base_path, mode='train', target_scale=36, FRAMEWORK='POTVIN', TIMESCALE='2to6', SigSevere=False, appendUH=False, Three_km=False):
+def All_Severe(base_path, mode='train', target_scale=36, FRAMEWORK='POTVIN', TIMESCALE='2to6', full_9km=True, SigSevere=False, appendUH=False, Three_km=False):
     '''base_path: Path like. Directory where ML feather files are located'''
     '''mode : str. Determines whether to load the training or testing dataset. Valid: ['train', 'test']'''
     '''target_scale: int. radius of target sizes in km. Valid: [9,18,36]'''
@@ -49,7 +49,7 @@ def All_Severe(base_path, mode='train', target_scale=36, FRAMEWORK='POTVIN', TIM
                                       mode=mode,
                                       target_col=target_col,
                                       FRAMEWORK=FRAMEWORK,
-                                      TIMESCALE=TIMESCALE, appendUH=appendUH, Three_km=Three_km)
+                                      TIMESCALE=TIMESCALE, appendUH=appendUH, Three_km=Three_km, full_9km=full_9km)
     print(len(y[y>0])) #Number of points with wind targets
     for hazard in ['hail','tornado']:
         if SigSevere:
@@ -60,7 +60,7 @@ def All_Severe(base_path, mode='train', target_scale=36, FRAMEWORK='POTVIN', TIM
                                            mode=mode,
                                            target_col=target_col,
                                            FRAMEWORK=FRAMEWORK,
-                                           TIMESCALE=TIMESCALE, Three_km=Three_km) 
+                                           TIMESCALE=TIMESCALE, Three_km=Three_km, full_9km=full_9km) 
         y +=y1
         print(len(y[y>0])) #Prints the number of wind+hail targets, then wind+hail+tornado
 
